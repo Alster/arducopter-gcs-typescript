@@ -1,4 +1,5 @@
 import {
+    common,
     MavEsp8266,
     MavLinkPacket,
     MavLinkPacketParser,
@@ -8,16 +9,19 @@ import {
 } from "node-mavlink";
 import {MavLinkData, MavLinkDataConstructor} from "mavlink-mappings";
 
-import {filter, map, Observable, Subject} from "rxjs";
+import {BehaviorSubject, filter, firstValueFrom, map, Observable, Subject} from "rxjs";
 import {Writable} from "stream";
 import {MavLinkProtocol} from "node-mavlink/lib/mavlink";
 import {MAVLINK_REGISTRY} from "../consts/mavlink-registry";
+import {CommandAck, CommandInt, CommandLong, MavCmd} from "mavlink-mappings/dist/lib/common";
 
 export class Mavlink {
     port: Writable;
     reader: MavLinkPacketParser | MavEsp8266;
 
+    ready: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
     data: Subject<MavLinkData> = new Subject<MavLinkData>();
+
 
     constructor(socket: MavEsp8266 | MavLinkPacketParser | Writable) {
 	   if (socket instanceof MavEsp8266) {
@@ -29,8 +33,12 @@ export class Mavlink {
 			 .pipe(new MavLinkPacketParser());
 	   }
 
-	   this.reader.on('open', (data) => {
-		  console.log('opened', data);
+	   this.port.on('connect', (data) => {
+		  this.ready.next(true);
+	   });
+
+	   this.port.on('disconnect', (data) => {
+		  this.ready.next(false);
 	   });
 
 	   this.reader.on('data', (packet: MavLinkPacket) => {
@@ -60,6 +68,10 @@ export class Mavlink {
 	   );
     }
 
+    async onReady(): Promise<void> {
+	   await firstValueFrom(this.ready.pipe(filter(s => s)));
+    }
+
     async send(msg: MavLinkData, protocol: MavLinkProtocol = new MavLinkProtocolV2()): Promise<number> {
 	   if (this.reader instanceof MavEsp8266) {
 		  this.reader.send(msg);
@@ -67,6 +79,33 @@ export class Mavlink {
 	   } else {
 		  return await send(this.port as Writable, msg, protocol) as Promise<number>;
 	   }
+    }
+
+    async sendAndWait(msg: MavLinkData, protocol: MavLinkProtocol = new MavLinkProtocolV2()): Promise<void> {
+	   const msgId = this.getMessageId(msg);
+	   await this.send(msg, protocol);
+
+	   await firstValueFrom(
+		  this.messagesByType(CommandAck)
+			 .pipe(
+				filter((commandAckMsg: CommandAck) => commandAckMsg.command === msgId),
+				map((msg: CommandAck) => {
+					   if (msg.result !== common.MavResult.ACCEPTED)
+						  throw new Error(`Command ${msgId} failed, reason: ${common.MavResult[msg.result]}`);
+				    }
+				)
+			 )
+	   );
+    }
+
+    protected getMessageId(msg: MavLinkData): MavCmd {
+	   if (msg instanceof CommandInt || msg instanceof CommandLong) {
+		  return msg.command;
+	   } else if ((msg as any).constructor.MSG_ID) {
+		  return (msg as any).constructor.MSG_ID;
+	   }
+
+	   throw new Error(`Error getting id from message`);
     }
 
     private static unpackMavPacket(packet: MavLinkPacket): MavLinkData {
