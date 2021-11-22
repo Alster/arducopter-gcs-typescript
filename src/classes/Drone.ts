@@ -1,6 +1,7 @@
 import {FlightMode} from "../enums/ardupilot/FlightMode";
 import {common, waitFor} from "node-mavlink";
 import {Vehicle} from "./Vehicle";
+import {GeolibGeoJSONPoint} from "geolib/es/types";
 
 
 export class Drone extends Vehicle {
@@ -11,6 +12,10 @@ export class Drone extends Vehicle {
 
   get hasArmed(): boolean {
     return (this.heartbeat.value.baseMode as number) === 217;
+  }
+
+  get position(): GeolibGeoJSONPoint {
+    return [this.globalPosition.value.lat, this.globalPosition.value.lon];
   }
 
   async setMode(mode: FlightMode): Promise<void> {
@@ -39,38 +44,62 @@ export class Drone extends Vehicle {
     await this.sendAndWait(msg);
   }
 
-  // Гля, приклади на пітоні https://www.ardusub.com/developers/pymavlink.html
-  async setPositionTarget(): Promise<void> {
-    const msg = new common.SetPositionTargetGlobalInt();
-    msg.timeBootMs = this.timeBootMs + 1000;
+  goToLocalPosition(x: number, y: number, z: number): void {
+    const msg = new common.SetPositionTargetLocalNed();
 
-    msg.latInt = this.lat + 10;
-    msg.lonInt = this.lon + 10;
-    msg.alt = (this.alt / 1000) + 10;
+    msg.x = x;
+    msg.y = y;
+    msg.z = z;
 
-    msg.vx = 0;
-    msg.vy = 0;
-    msg.vz = 0;
-
-    msg.afx = 0;
-    msg.afy = 0;
-    msg.afz = 0;
-
-    msg.yaw = 0;
     msg.yawRate = 0;
 
-    msg.coordinateFrame = common.MavFrame.GLOBAL_INT;
+    msg.coordinateFrame = common.MavFrame.BODY_NED;
 
     msg.typeMask =
       common.PositionTargetTypemask.VX_IGNORE |
       common.PositionTargetTypemask.VY_IGNORE |
       common.PositionTargetTypemask.VZ_IGNORE |
+
       common.PositionTargetTypemask.AX_IGNORE |
       common.PositionTargetTypemask.AY_IGNORE |
       common.PositionTargetTypemask.AZ_IGNORE |
-      common.PositionTargetTypemask.YAW_IGNORE |
-      common.PositionTargetTypemask.YAW_RATE_IGNORE;
 
+      common.PositionTargetTypemask.YAW_IGNORE;
+
+    void this.send(msg);
+  }
+
+  goToDirection(x: number, y: number, z: number): void {
+    const msg = new common.SetPositionTargetLocalNed();
+
+    msg.vx = x;
+    msg.vy = y;
+    msg.vz = z;
+
+    msg.yawRate = 0;
+
+    msg.coordinateFrame = common.MavFrame.BODY_NED;
+
+    msg.typeMask =
+      common.PositionTargetTypemask.X_IGNORE |
+      common.PositionTargetTypemask.Y_IGNORE |
+      common.PositionTargetTypemask.Z_IGNORE |
+
+      common.PositionTargetTypemask.AX_IGNORE |
+      common.PositionTargetTypemask.AY_IGNORE |
+      common.PositionTargetTypemask.AZ_IGNORE |
+
+      common.PositionTargetTypemask.YAW_IGNORE;
+
+    void this.send(msg);
+  }
+
+  async setSpeed(metersPerSecond: number): Promise<void> {
+    const msg = new common.CommandLong();
+    msg.command = common.MavCmd.DO_CHANGE_SPEED;
+    //Air speed
+    msg.param1 = 0;
+    msg.param2 = metersPerSecond;
     await this.sendAndWait(msg);
   }
 

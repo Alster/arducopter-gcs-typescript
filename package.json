@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "geolib": "^3.3.3",
     "mavlink-mappings": "^1.0.1-20210930",
     "node-mavlink": "^1.0.6",
     "rxjs": "^7.4.0",

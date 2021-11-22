@@ -17,7 +17,7 @@ const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
       await drone.arm();
       await drone.takeoff(30);
     } else if (event == 't') {
-      await drone.setPositionTarget();
+      // await drone.setPositionTarget();
     } else if (event == 'down') {
       await drone.setMode(FlightMode.LAND);
     }
