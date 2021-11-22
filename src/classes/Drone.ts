@@ -1,27 +1,16 @@
 import {FlightMode} from "../enums/ardupilot/FlightMode";
-import {common, minimal, sleep} from "node-mavlink";
+import {common, waitFor} from "node-mavlink";
 import {Vehicle} from "./Vehicle";
 
 
 export class Drone extends Vehicle {
-  mode: FlightMode;
-  lat: number;
-  lon: number;
-  alt: number;
-  timeBootMs: number;
 
-  protected onInitialized(){
-    super.onInitialized();
+  get mode(): FlightMode {
+    return this.heartbeat.value.customMode as FlightMode;
+  }
 
-    this.messagesByType(minimal.Heartbeat).subscribe(packet => {
-      this.mode = packet.customMode;
-    })
-    this.messagesByType(common.GlobalPositionInt).subscribe(packet => {
-      this.lat = packet.lat;
-      this.lon = packet.lon;
-      this.alt = packet.alt;
-      this.timeBootMs = packet.timeBootMs;
-    })
+  get hasArmed(): boolean {
+    return (this.heartbeat.value.baseMode as number) === 217;
   }
 
   async setMode(mode: FlightMode): Promise<void> {
@@ -30,14 +19,17 @@ export class Drone extends Vehicle {
     msg.param1 = 81;
     msg.param2 = mode;
     await this.sendAndWait(msg);
+    await waitFor(() => this.mode === mode);
   }
 
   async arm(): Promise<void> {
     await this.armControl(true);
+    await waitFor(() => this.hasArmed);
   }
 
   async disarm(): Promise<void> {
-    await this.armControl(true);
+    await this.armControl(false);
+    await waitFor(() => !this.hasArmed);
   }
 
   async takeoff(altitude: number): Promise<void> {
@@ -54,7 +46,7 @@ export class Drone extends Vehicle {
 
     msg.latInt = this.lat + 10;
     msg.lonInt = this.lon + 10;
-    msg.alt = this.alt + 10;
+    msg.alt = (this.alt / 1000) + 10;
 
     msg.vx = 0;
     msg.vy = 0;
