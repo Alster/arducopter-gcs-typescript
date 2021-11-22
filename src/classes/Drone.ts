@@ -15,7 +15,7 @@ export class Drone extends Vehicle {
   }
 
   get position(): GeolibGeoJSONPoint {
-    return [this.globalPosition.value.lat, this.globalPosition.value.lon];
+    return [this.globalPosition.value.lat / 1e7, this.globalPosition.value.lon / 1e7];
   }
 
   async setMode(mode: FlightMode): Promise<void> {
@@ -78,7 +78,7 @@ export class Drone extends Vehicle {
 
     msg.yawRate = 0;
 
-    msg.coordinateFrame = common.MavFrame.BODY_NED;
+    msg.coordinateFrame = common.MavFrame.LOCAL_OFFSET_NED;
 
     msg.typeMask =
       common.PositionTargetTypemask.X_IGNORE |
