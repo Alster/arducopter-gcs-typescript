@@ -16,7 +16,7 @@ export class Drone extends Vehicle {
   async setMode(mode: FlightMode): Promise<void> {
     const msg = new common.CommandLong();
     msg.command = common.MavCmd.DO_SET_MODE;
-    msg.param1 = 81;
+    msg.param1 = this.heartbeat.value.baseMode;
     msg.param2 = mode;
     await this.sendAndWait(msg);
     await waitFor(() => this.mode === mode);
