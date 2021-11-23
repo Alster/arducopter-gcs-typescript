@@ -39,25 +39,49 @@ export class Drone extends Vehicle {
     await this.sendAndWait(msg);
   }
 
+  async navWaypoint(lat: number, lon: number, alt: number): Promise<void> {
+    const cmd = new common.CommandLong();
+    cmd.command = common.MavCmd.NAV_WAYPOINT;
+    cmd.param1 = 0;
+    cmd.param2 = 0;
+    cmd.param3 = 0;
+    cmd.param4 = 0;
+    cmd.param5 = lat;
+    cmd.param6 = lon;
+    cmd.param7 = alt;
+    await this.sendAndWait(cmd);
+  }
+
+  async navLand(lat: number, lon: number): Promise<void> {
+    const cmd = new common.CommandLong();
+    cmd.command = common.MavCmd.NAV_LAND;
+    cmd.param1 = 0;
+    cmd.param2 = 0;
+    cmd.param3 = 0;
+    cmd.param4 = 0;
+    cmd.param5 = lat;
+    cmd.param6 = lon;
+    cmd.param7 = 0;
+    await this.sendAndWait(cmd);
+  }
+
   // Гля, приклади на пітоні https://www.ardusub.com/developers/pymavlink.html
-  async setPositionTarget(): Promise<void> {
+  async setPositionTargetGlobalLatLon(lat: number, lon: number, alt: number): Promise<void> {
     const msg = new common.SetPositionTargetGlobalInt();
-    msg.timeBootMs = this.timeBootMs + 1000;
+    msg.latInt = lat * 1e7;
+    msg.lonInt = lon * 1e7;
+    msg.alt = alt;
 
-    msg.latInt = this.lat + 10;
-    msg.lonInt = this.lon + 10;
-    msg.alt = (this.alt / 1000) + 10;
-
-    msg.vx = 0;
-    msg.vy = 0;
-    msg.vz = 0;
-
-    msg.afx = 0;
-    msg.afy = 0;
-    msg.afz = 0;
-
-    msg.yaw = 0;
-    msg.yawRate = 0;
+    // msg.vx = 0;
+    // msg.vy = 0;
+    // msg.vz = 0;
+    //
+    // msg.afx = 0;
+    // msg.afy = 0;
+    // msg.afz = 0;
+    //
+    // msg.yaw = 0;
+    // msg.yawRate = 0;
 
     msg.coordinateFrame = common.MavFrame.GLOBAL_INT;
 
@@ -68,6 +92,30 @@ export class Drone extends Vehicle {
       common.PositionTargetTypemask.AX_IGNORE |
       common.PositionTargetTypemask.AY_IGNORE |
       common.PositionTargetTypemask.AZ_IGNORE |
+      common.PositionTargetTypemask.YAW_IGNORE |
+      common.PositionTargetTypemask.YAW_RATE_IGNORE;
+
+    await this.sendAndWait(msg);
+  }
+
+  async setPositionTargetGlobalVxVyVz(vX: number, xY: number, vZ: number, yawRate: number): Promise<void> {
+    const msg = new common.SetPositionTargetLocalNed();
+
+
+    msg.vx = vX;
+    msg.vy = xY;
+    msg.vz = vZ;
+    msg.yawRate = yawRate;
+
+    // msg.coordinateFrame = common.MavFrame.GLOBAL_INT;
+    msg.coordinateFrame = common.MavFrame.BODY_NED;
+
+    msg.typeMask =
+      common.PositionTargetTypemask.X_IGNORE |
+      common.PositionTargetTypemask.Y_IGNORE |
+      common.PositionTargetTypemask.Z_IGNORE |
+      common.PositionTargetTypemask.AX_IGNORE |
+      common.PositionTargetTypemask.AY_IGNORE |
       common.PositionTargetTypemask.YAW_IGNORE |
       common.PositionTargetTypemask.YAW_RATE_IGNORE;
 

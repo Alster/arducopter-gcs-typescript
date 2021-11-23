@@ -148,6 +148,8 @@ export class Mavlink {
             ).subscribe((msg: common.CommandAck) => {
                 observer.next(msg);
 
+                console.log(msg);
+
                 if (msg.result === common.MavResult.ACCEPTED) {
                   observer.complete();
                   s.unsubscribe();
