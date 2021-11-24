@@ -1,6 +1,7 @@
 import {FlightMode} from "../enums/ardupilot/FlightMode";
 import {common, waitFor} from "node-mavlink";
 import {Vehicle} from "./Vehicle";
+import {GeolibGeoJSONPoint} from "geolib/es/types";
 
 
 export class Drone extends Vehicle {
@@ -11,6 +12,10 @@ export class Drone extends Vehicle {
 
   get hasArmed(): boolean {
     return (this.heartbeat.value.baseMode as number) === 217;
+  }
+
+  get position(): GeolibGeoJSONPoint {
+    return [this.globalPosition.value.lat / 1e7, this.globalPosition.value.lon / 1e7];
   }
 
   async setMode(mode: FlightMode): Promise<void> {
@@ -39,6 +44,13 @@ export class Drone extends Vehicle {
     await this.sendAndWait(msg);
   }
 
+
+  /**
+   * Не работает в GUIDED режиме, не тестировали
+   * @param lat
+   * @param lon
+   * @param alt
+   */
   async navWaypoint(lat: number, lon: number, alt: number): Promise<void> {
     const cmd = new common.CommandLong();
     cmd.command = common.MavCmd.NAV_WAYPOINT;
@@ -52,6 +64,11 @@ export class Drone extends Vehicle {
     await this.sendAndWait(cmd);
   }
 
+  /**
+   * Начинает посадку сразу, не летит в указанные координаты
+   * @param lat
+   * @param lon
+   */
   async navLand(lat: number, lon: number): Promise<void> {
     const cmd = new common.CommandLong();
     cmd.command = common.MavCmd.NAV_LAND;
@@ -66,22 +83,24 @@ export class Drone extends Vehicle {
   }
 
   // Гля, приклади на пітоні https://www.ardusub.com/developers/pymavlink.html
-  async setPositionTargetGlobalLatLon(lat: number, lon: number, alt: number): Promise<void> {
+  async setPositionTarget(): Promise<void> {
     const msg = new common.SetPositionTargetGlobalInt();
-    msg.latInt = lat * 1e7;
-    msg.lonInt = lon * 1e7;
-    msg.alt = alt;
+    msg.timeBootMs = this.timeBootMs + 1000;
 
-    // msg.vx = 0;
-    // msg.vy = 0;
-    // msg.vz = 0;
-    //
-    // msg.afx = 0;
-    // msg.afy = 0;
-    // msg.afz = 0;
-    //
-    // msg.yaw = 0;
-    // msg.yawRate = 0;
+    msg.latInt = this.lat + 10;
+    msg.lonInt = this.lon + 10;
+    msg.alt = (this.alt / 1000) + 10;
+
+    msg.vx = 0;
+    msg.vy = 0;
+    msg.vz = 0;
+
+    msg.afx = 0;
+    msg.afy = 0;
+    msg.afz = 0;
+
+    msg.yaw = 0;
+    msg.yawRate = 0;
 
     msg.coordinateFrame = common.MavFrame.GLOBAL_INT;
 
@@ -98,27 +117,60 @@ export class Drone extends Vehicle {
     await this.sendAndWait(msg);
   }
 
-  async setPositionTargetGlobalVxVyVz(vX: number, xY: number, vZ: number, yawRate: number): Promise<void> {
+  goToLocalPosition(x: number, y: number, z: number): void {
     const msg = new common.SetPositionTargetLocalNed();
 
+    msg.x = x;
+    msg.y = y;
+    msg.z = z;
 
-    msg.vx = vX;
-    msg.vy = xY;
-    msg.vz = vZ;
+    msg.yawRate = 0;
+
+    msg.coordinateFrame = common.MavFrame.BODY_NED;
+
+    msg.typeMask =
+      common.PositionTargetTypemask.VX_IGNORE |
+      common.PositionTargetTypemask.VY_IGNORE |
+      common.PositionTargetTypemask.VZ_IGNORE |
+
+      common.PositionTargetTypemask.AX_IGNORE |
+      common.PositionTargetTypemask.AY_IGNORE |
+      common.PositionTargetTypemask.AZ_IGNORE |
+
+      common.PositionTargetTypemask.YAW_IGNORE;
+
+    void this.send(msg);
+  }
+
+  goToDirection(x: number, y: number, z: number, yawRate: number): void {
+    const msg = new common.SetPositionTargetLocalNed();
+
+    msg.vx = x;
+    msg.vy = y;
+    msg.vz = z;
+
     msg.yawRate = yawRate;
 
-    // msg.coordinateFrame = common.MavFrame.GLOBAL_INT;
     msg.coordinateFrame = common.MavFrame.BODY_NED;
 
     msg.typeMask =
       common.PositionTargetTypemask.X_IGNORE |
       common.PositionTargetTypemask.Y_IGNORE |
       common.PositionTargetTypemask.Z_IGNORE |
+
       common.PositionTargetTypemask.AX_IGNORE |
       common.PositionTargetTypemask.AY_IGNORE |
-      common.PositionTargetTypemask.YAW_IGNORE |
-      common.PositionTargetTypemask.YAW_RATE_IGNORE;
+      common.PositionTargetTypemask.AZ_IGNORE;
 
+    void this.send(msg);
+  }
+
+  async setSpeed(metersPerSecond: number): Promise<void> {
+    const msg = new common.CommandLong();
+    msg.command = common.MavCmd.DO_CHANGE_SPEED;
+    //Air speed
+    msg.param1 = 0;
+    msg.param2 = metersPerSecond;
     await this.sendAndWait(msg);
   }
 
