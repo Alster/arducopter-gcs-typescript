@@ -15,9 +15,11 @@
   "license": "ISC",
   "dependencies": {
     "geolib": "^3.3.3",
+    "iohook": "^0.6.6",
     "mavlink-mappings": "^1.0.1-20210930",
     "node-mavlink": "^1.0.6",
     "rxjs": "^7.4.0",
+    "socket.io": "^4.4.0",
     "ts-node": "^10.4.0",
     "typescript": "^4.5.2"
   },

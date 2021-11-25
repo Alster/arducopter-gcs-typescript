@@ -28,10 +28,11 @@ import {MavLinkProtocol} from "node-mavlink/lib/mavlink";
 import {MavLinkPacketField} from "mavlink-mappings/lib/mavlink";
 import {unpackMavPacket} from "../helpers/mavlink/unpackMavPacket";
 import {MavlinkSoc} from "../types/MavlinkSoc";
+import {CommandLong, MessageInterval, RequestDataStream} from "mavlink-mappings/dist/lib/common";
 
 
 export class Mavlink {
-  port: Writable;
+  port: Writable | MavEsp8266;
   reader: MavLinkPacketParser | MavEsp8266;
 
   ready: BehaviorSubject<boolean> = new BehaviorSubject<boolean>(false);
@@ -43,8 +44,12 @@ export class Mavlink {
   heartbeat: BehaviorSubject<minimal.Heartbeat> = new BehaviorSubject<minimal.Heartbeat>(null);
 
   constructor(socket: MavlinkSoc) {
+
+
     if (socket instanceof MavEsp8266) {
       this.reader = socket;
+      this.port = socket;
+      this.ready.next(true);
     } else {
       this.port = socket;
       this.reader = (socket as Writable)
@@ -53,11 +58,12 @@ export class Mavlink {
     }
 
     this.port.on('connect', (data) => {
-      console.log(`Connected`)
+      console.log(`Connected`);
       this.ready.next(true);
     });
 
     this.port.on('disconnect', (data) => {
+      console.log(`disconnect`);
       this.ready.next(false);
     });
 
@@ -70,7 +76,9 @@ export class Mavlink {
     });
 
     this.messagesByType(minimal.Heartbeat)
-      .subscribe((h: minimal.Heartbeat) => this.heartbeat.next(h));
+      .subscribe((h: minimal.Heartbeat) => {
+        this.heartbeat.next(h)
+      });
 
     // this.messagesByType(Heartbeat)
     //   .subscribe((data: Heartbeat) => {
@@ -99,6 +107,28 @@ export class Mavlink {
     );
   }
 
+  /** Test method **/
+  async setMessageInterval(interval: number, messageId: common.MavCmd): Promise<void> {
+    const msg = new CommandLong()
+    // msg.targetSystem = 1;
+    // msg.targetComponent = 0;
+    msg.param1 = messageId;
+    msg.param2 = interval;
+    msg.confirmation = 0;
+    await this.sendAndWait(msg);
+  }
+
+  /** Test method **/
+  async requestDataStream(messagesGroup: common.MavDataStream, interval: number, startStop: number = 1): Promise<void> {
+    const msg = new RequestDataStream();
+    msg.targetSystem = 0;
+    msg.targetComponent = 0;
+    msg.reqStreamId = messagesGroup;
+    msg.reqMessageRate = interval;
+    msg.startStop = startStop;
+    await this.send(msg);
+  }
+
   async onReady(): Promise<void> {
     await firstValueFrom(
       zip(
@@ -117,7 +147,7 @@ export class Mavlink {
     this.fillRestOfCommand(msg);
     return new Observable<number>((observer: Subscriber<number>) => {
       if (this.reader instanceof MavEsp8266) {
-        this.reader.send(msg);
+        (this.port as MavEsp8266).send(msg);
         observer.next(null);
         observer.complete();
       } else {

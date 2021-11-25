@@ -1,11 +1,10 @@
 import {connect} from "net";
 import {Drone} from "../src/classes/Drone";
 import {FlightMode} from "../src/enums/ardupilot/FlightMode";
-import * as readline from "readline";
 import {sleep} from "node-mavlink";
+import iohook from "iohook";
 
 const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
-readline.emitKeypressEvents(process.stdin);
 
 
 (async function main() {
@@ -14,45 +13,58 @@ readline.emitKeypressEvents(process.stdin);
   await drone.setMode(FlightMode.GUIDED);
   await drone.arm();
 
-  console.log(drone.globalPosition.value);
-
   if (drone.globalPosition.value.relativeAlt < 10) {
     await drone.takeoff(50);
     await sleep(20000);
   }
 
+  const keys = {
+    17: false, //w
+    31: false, //s
+    30: false, //a
+    32: false, //d
+    16: false, //q
+    18: false, //e
+  };
 
-  if (process.stdin.isTTY)
-    process.stdin.setRawMode(true);
 
-  process.stdin.on('keyup', (chunk, key) => {
-    console.log(key);
+  iohook.on('keydown', (event: any) => {
+    keys[event.keycode] = true;
   });
 
-  process.stdin.on('keypress', (chunk, key) => {
+  iohook.on('keyup', (event: any) => {
+    keys[event.keycode] = false;
+  });
 
-    if (key.name === 'w') {
-      drone.goToDirection(10, 0, 0, 0);
-    } else if (key.name === 's') {
-      drone.goToDirection(-10, 0, 0, 0);
-    } else if (key.name === 'a') {
-      drone.goToDirection(0, -10, 0, 0);
-    } else if (key.name === 'd') {
-      drone.goToDirection(0, 10, 0, 0);
-    } else if (key.name === 'q') {
-      drone.goToDirection(0, 0, 0, -1);
-    } else if (key.name === 'e') {
-      drone.goToDirection(0, 0, 0, 1);
-    } else if (key.name === '8') {
-      drone.goToDirection(0, 0, 1, 0);
-    } else if (key.name === '2') {
-      drone.goToDirection(0, 0, -1, 0);
+  iohook.start();
+
+
+  while (true) {
+    let x = 0;
+    let y = 0;
+    let z = 0;
+
+    if (keys[17]) {
+      x = 10;
+    } else if (keys[31]) {
+      x = -10;
     }
 
+    if (keys[30]) {
+      y = -10;
+    } else if (keys[32]) {
+      y = 10;
+    }
 
-    if (key && key.name == 'c')
-      process.exit();
-  });
+    if (keys[16]) {
+      z = 10;
+    } else if (keys[18]) {
+      z = -10;
+    }
 
+    console.log(drone.globalPosition.value);
+    drone.goToDirection(x, y, z, 0);
+    await sleep(10);
+  }
 
 })();
