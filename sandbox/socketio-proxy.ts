@@ -1,7 +1,6 @@
 import {Heartbeat} from "mavlink-mappings/dist/lib/minimal";
 import {createServer} from "http";
-import {LocalPositionNed} from "mavlink-mappings/dist/lib/common";
-import {Ahrs2} from "mavlink-mappings/dist/lib/ardupilotmega";
+import {Attitude, LocalPositionNed} from "mavlink-mappings/dist/lib/common";
 import {common} from "node-mavlink";
 import {Drone} from "../src";
 import {connect} from "net";
@@ -15,8 +14,7 @@ const io = require("socket.io")(httpServer, {
   }
 });
 
-httpServer.listen(3001);
-(io as any).listen(3000);
+httpServer.listen(3000);
 
 (async function main() {
   // const udp = new MavEsp8266();
@@ -31,8 +29,8 @@ httpServer.listen(3001);
   try {
     // drone.setMessageInterval(50000, common.MavCmd.DO_CHANGE_SPEED);
 
-    drone.requestDataStream(common.MavDataStream.POSITION, 50, 1);
-    drone.requestDataStream(common.MavDataStream.EXTRA1, 50, 1);
+    // drone.requestDataStream(common.MavDataStream.POSITION, 50, 1);
+    drone.requestDataStream(common.MavDataStream.ALL, 50, 1);
   } catch (err) {
     console.log(err);
   }
@@ -46,6 +44,7 @@ httpServer.listen(3001);
 
   drone.messagesByType(Heartbeat).subscribe(msg => io.sockets.emit('heartbeat', msg));
   drone.messagesByType(LocalPositionNed).subscribe(msg => io.sockets.emit('local-position', msg));
-  drone.messagesByType(Ahrs2).subscribe(msg => io.sockets.emit('ahrs2', msg));
+  // drone.messagesByType(Ahrs2).subscribe(msg => io.sockets.emit('ahrs2', msg));
+  drone.messagesByType(Attitude).subscribe(msg => io.sockets.emit('attitude', msg));
 
 })();

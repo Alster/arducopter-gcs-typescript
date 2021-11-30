@@ -117,14 +117,14 @@ export class Drone extends Vehicle {
     await this.sendAndWait(msg);
   }
 
-  goToLocalPosition(x: number, y: number, z: number): void {
+  goToLocalPosition(x: number, y: number, z: number, yawRate: number = 0): void {
     const msg = new common.SetPositionTargetLocalNed();
 
     msg.x = x;
     msg.y = y;
     msg.z = z;
 
-    msg.yawRate = 0;
+    msg.yaw = yawRate;
 
     msg.coordinateFrame = common.MavFrame.BODY_NED;
 
@@ -136,8 +136,9 @@ export class Drone extends Vehicle {
       common.PositionTargetTypemask.AX_IGNORE |
       common.PositionTargetTypemask.AY_IGNORE |
       common.PositionTargetTypemask.AZ_IGNORE |
+      common.PositionTargetTypemask.YAW_RATE_IGNORE;
 
-      common.PositionTargetTypemask.YAW_IGNORE;
+    // common.PositionTargetTypemask.YAW_IGNORE;
 
     void this.send(msg);
   }
@@ -151,7 +152,7 @@ export class Drone extends Vehicle {
 
     msg.yawRate = yawRate;
 
-    msg.coordinateFrame = common.MavFrame.BODY_NED;
+    msg.coordinateFrame = common.MavFrame.LOCAL_FLU;
 
     msg.typeMask =
       common.PositionTargetTypemask.X_IGNORE |

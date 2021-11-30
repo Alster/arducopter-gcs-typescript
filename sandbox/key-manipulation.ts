@@ -19,16 +19,21 @@ const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
   }
 
   const keys = {
-    17: false, //w
-    31: false, //s
-    30: false, //a
-    32: false, //d
-    16: false, //q
-    18: false, //e
+    17: false, //w вперед
+    31: false, //s назад
+    30: false, //a влево
+    32: false, //d вправо
+    16: false, //q вверх
+    18: false, //e вниз
+    61003: false, // повернуться против часовой стрелки
+    61005: false // повернуться за часовой стрелкой
+
   };
 
 
   iohook.on('keydown', (event: any) => {
+    // console.log(event.keycode);
+    // process.exit();
     keys[event.keycode] = true;
   });
 
@@ -43,9 +48,11 @@ const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
     let x = 0;
     let y = 0;
     let z = 0;
+    let yawRate = 0;
 
     if (keys[17]) {
       x = 10;
+
     } else if (keys[31]) {
       x = -10;
     }
@@ -62,8 +69,16 @@ const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
       z = -10;
     }
 
-    console.log(drone.globalPosition.value);
-    drone.goToDirection(x, y, z, 0);
+    if (keys[61003]) {
+      yawRate = -1;
+    } else if (keys[61005]) {
+      yawRate = 1;
+    }
+
+    // console.log(drone.globalPosition.value);
+    drone.goToLocalPosition(x, y, z, yawRate);
+
+
     await sleep(10);
   }
 
