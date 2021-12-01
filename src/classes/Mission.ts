@@ -1,0 +1,59 @@
+import {Mavlink} from "./Mavlink";
+import {FlightMode} from "../enums";
+import * as fs from 'fs';
+import * as path from 'path';
+import {common} from "node-mavlink";
+import {lastValueFrom} from "rxjs";
+
+export class Mission {
+  private commands: common.MissionItemInt[];
+
+  public async loadFromFile(filePath: string): Promise<void>{
+    const data = fs.readFileSync(path.resolve(filePath), 'utf8');
+    const rows = data.split('\r\n').slice(1).filter(r => r).map(r => r.split('\t'));
+    this.commands = rows.map(r => r.map(i => +i)).map(r => {
+      const [seq, currentWP, frame, command, p1, p2, p3, p4, x, y, z, autoContinue] = r;
+      const msg = new common.MissionItemInt();
+      msg.seq = seq;
+      msg.current = currentWP;
+      msg.frame = frame;
+      msg.command = command;
+      msg.param1 = p1;
+      msg.param2 = p2;
+      msg.param3 = p3;
+      msg.param4 = p4;
+      msg.x = Math.round(x * 1e7);
+      msg.y = Math.round(y * 1e7);
+      msg.z = z;
+      msg.autocontinue = autoContinue;
+      return msg;
+    });
+  }
+
+  public async uploadTo(mavlink: Mavlink): Promise<void>{
+
+    // mavlink.messagesByType(common.MissionRequestInt).subscribe(async mri => {
+    //   console.log(`received MissionRequestInt`)
+    //   console.dir(mri);
+    //   await this.uploadCommand(mavlink, this.commands[mri.seq]);
+    // });
+    await this.missionCount(mavlink)
+    for (const cmd of this.commands){
+      await this.uploadCommand(mavlink, cmd);
+    }
+    const mAck = await lastValueFrom(mavlink.messagesByType(common.MissionAck));
+    console.log(`UPLOAD FINISHED!`)
+    console.dir(mAck);
+  }
+
+  private async missionCount(mavlink: Mavlink): Promise<void> {
+    const msg = new common.MissionCount();
+    msg.count = this.commands.length;
+    console.log(`Sending missionCount`)
+    await mavlink.send(msg);
+  }
+
+  private async uploadCommand(mavlink: Mavlink, command: common.MissionItemInt): Promise<void> {
+    await mavlink.send(command);
+  }
+}
