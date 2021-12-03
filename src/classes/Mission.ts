@@ -5,9 +5,9 @@ import {common} from "node-mavlink";
 import {BehaviorSubject, filter, firstValueFrom, lastValueFrom, Subject, Subscription} from "rxjs";
 
 export class Mission {
-  public currentWaypoint$: BehaviorSubject<number> = new BehaviorSubject(0);
-  public waypointReached$: Subject<number> = new Subject();
-  public missionComplete$: Subject<void> = new Subject();
+  public readonly currentWaypoint$: BehaviorSubject<number> = new BehaviorSubject(0);
+  public readonly waypointReached$: Subject<number> = new Subject();
+  public readonly missionComplete$: Subject<void> = new Subject();
 
   public get commandsCount() {
     return this.commands.length ? this.commands.length - 1 : 0;

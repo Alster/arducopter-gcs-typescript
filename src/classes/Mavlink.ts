@@ -42,7 +42,7 @@ export class Mavlink {
   targetComponent = 0;
 
   heartbeat: BehaviorSubject<minimal.Heartbeat> = new BehaviorSubject<minimal.Heartbeat>(null);
-  baseMode$: BehaviorSubject<number> = new BehaviorSubject(0);
+  protected readonly baseMode$: BehaviorSubject<number> = new BehaviorSubject(0);
 
   constructor(socket: MavlinkSoc) {
 
@@ -104,7 +104,7 @@ export class Mavlink {
   }
 
   get baseMode(): minimal.MavModeFlag {
-    return this.heartbeat.value.baseMode;
+    return this.baseMode$.value;
   }
 
   messagesByType<T>(clazz: MavLinkDataConstructor<T>): Observable<T> {
@@ -239,7 +239,7 @@ export class Mavlink {
   }
 
   private logMessage(msg: MavLinkData): void {
-    console.log(`OUT: ${this.msgToString(msg)}`);
+    console.log(`[OUT]: ${this.msgToString(msg)}`);
   }
 
   private msgToString(msg: MavLinkData): string {
