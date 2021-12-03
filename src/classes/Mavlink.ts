@@ -12,7 +12,7 @@ import {MavLinkData, MavLinkDataConstructor} from "mavlink-mappings";
 import {
   BehaviorSubject,
   catchError,
-  filter,
+  filter, first,
   firstValueFrom,
   lastValueFrom,
   map,
@@ -108,6 +108,10 @@ export class Mavlink {
       }),
       map(data => data as T)
     );
+  }
+
+  firstMessagesByType<T>(clazz: MavLinkDataConstructor<T>): Observable<T> {
+    return this.messagesByType(clazz).pipe(first());
   }
 
   /** Test method **/

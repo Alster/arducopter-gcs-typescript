@@ -56,6 +56,8 @@ const ignoreClasses = [
   const mission = new Mission(drone);
   await mission.loadFromFile('./Test.waypoints');
   await mission.upload();
-
+  mission.currentWaypoint$.subscribe(v => {
+    console.log(`CURRENT WAYPOINT: ${v}`);
+  });
 
 })();

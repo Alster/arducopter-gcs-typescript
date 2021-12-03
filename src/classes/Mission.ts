@@ -2,7 +2,7 @@ import {Mavlink} from "./Mavlink";
 import * as fs from 'fs';
 import * as path from 'path';
 import {common} from "node-mavlink";
-import {BehaviorSubject, lastValueFrom, Subscription} from "rxjs";
+import {BehaviorSubject, filter, firstValueFrom, lastValueFrom, Subscription} from "rxjs";
 
 export class Mission {
   public currentWaypoint$: BehaviorSubject<number> = new BehaviorSubject(0);
@@ -38,19 +38,18 @@ export class Mission {
     });
   }
 
-  public async upload(): Promise<void>{
+  public async upload(): Promise<void> {
     this.startTrackMissionStatus();
     this.subMissionRequest = this.mavlink.messagesByType(common.MissionRequest).subscribe(async msg => {
       await this.uploadCommand(this.commands[msg.seq]);
     });
-    await this.missionCount()
-    await lastValueFrom(this.mavlink.messagesByType(common.MissionAck));
-    console.log(`UPLOAD FINISHED!`)
+    await this.sendMissionCount()
+    await firstValueFrom(this.mavlink.firstMessagesByType(common.MissionAck));
     this.subMissionRequest.unsubscribe();
     this.subMissionRequest = null;
   }
 
-  private async missionCount(): Promise<void> {
+  private async sendMissionCount(): Promise<void> {
     const msg = new common.MissionCount();
     msg.count = this.commands.length;
     await this.mavlink.send(msg);
