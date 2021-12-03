@@ -1,7 +1,8 @@
 import {FlightMode} from "../enums/ardupilot/FlightMode";
-import {common, waitFor} from "node-mavlink";
+import {common, minimal, waitFor} from "node-mavlink";
 import {Vehicle} from "./Vehicle";
 import {GeolibGeoJSONPoint} from "geolib/es/types";
+import {filter, firstValueFrom} from "rxjs";
 
 
 export class Drone extends Vehicle {
@@ -11,7 +12,7 @@ export class Drone extends Vehicle {
   }
 
   get hasArmed(): boolean {
-    return (this.heartbeat.value.baseMode as number) === 217;
+    return !!(this.baseMode$.value & minimal.MavModeFlag.SAFETY_ARMED);
   }
 
   get position(): GeolibGeoJSONPoint {
@@ -21,7 +22,7 @@ export class Drone extends Vehicle {
   async setMode(mode: FlightMode): Promise<void> {
     const msg = new common.CommandLong();
     msg.command = common.MavCmd.DO_SET_MODE;
-    msg.param1 = this.heartbeat.value.baseMode;
+    msg.param1 = this.baseMode$.value;
     msg.param2 = mode;
     await this.sendAndWait(msg);
     await waitFor(() => this.mode === mode);
@@ -29,12 +30,12 @@ export class Drone extends Vehicle {
 
   async arm(): Promise<void> {
     await this.armControl(true);
-    await waitFor(() => this.hasArmed);
+    await this.waitForBaseModeOn(minimal.MavModeFlag.SAFETY_ARMED);
   }
 
   async disarm(): Promise<void> {
     await this.armControl(false);
-    await waitFor(() => !this.hasArmed);
+    await this.waitForBaseModeOff(minimal.MavModeFlag.SAFETY_ARMED);
   }
 
   async takeoff(altitude: number): Promise<void> {
@@ -42,6 +43,18 @@ export class Drone extends Vehicle {
     msg.command = common.MavCmd.NAV_TAKEOFF;
     msg.param7 = altitude;
     await this.sendAndWait(msg);
+  }
+
+  async waitForAltitude(altitude: number, dispersion = 1): Promise<common.GlobalPositionInt> {
+    return firstValueFrom(this.globalPosition.pipe(filter(v => (this.relativeAlt / 1000) > (altitude - dispersion))));
+  }
+
+  async waitForBaseModeOn(mode: minimal.MavModeFlag): Promise<number> {
+    return firstValueFrom(this.baseMode$.pipe(filter(v => !!(this.baseMode$.value & mode))));
+  }
+
+  async waitForBaseModeOff(mode: minimal.MavModeFlag): Promise<number> {
+    return firstValueFrom(this.baseMode$.pipe(filter(v => !(this.baseMode$.value & mode))));
   }
 
 

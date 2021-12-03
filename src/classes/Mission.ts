@@ -2,23 +2,36 @@ import {Mavlink} from "./Mavlink";
 import * as fs from 'fs';
 import * as path from 'path';
 import {common} from "node-mavlink";
-import {BehaviorSubject, filter, firstValueFrom, lastValueFrom, Subscription} from "rxjs";
+import {BehaviorSubject, filter, firstValueFrom, lastValueFrom, Subject, Subscription} from "rxjs";
 
 export class Mission {
   public currentWaypoint$: BehaviorSubject<number> = new BehaviorSubject(0);
+  public waypointReached$: Subject<number> = new Subject();
+  public missionComplete$: Subject<void> = new Subject();
+
+  public get commandsCount() {
+    return this.commands.length ? this.commands.length - 1 : 0;
+  }
 
   private commands: common.MissionItemInt[];
   private subMissionRequest?: Subscription;
   private subMissionCurrent?: Subscription;
+  private subMissionItemReached?: Subscription;
 
   constructor(
     private readonly mavlink: Mavlink,
   ) {
   }
 
-  public async loadFromFile(filePath: string): Promise<void>{
-    const data = fs.readFileSync(path.resolve(filePath), 'utf8');
-    const rows = data.split('\r\n').slice(1).filter(r => r).map(r => r.split('\t'));
+  public loadFromFile(filePath: string): void {
+    const resolvedFilePath = path.resolve(filePath);
+    const data = fs.readFileSync(resolvedFilePath, 'utf8');
+    const rows = data
+      .split('\n')
+      .slice(1)
+      .map(r => r.trim())
+      .filter(r => r)
+      .map(r => r.split('\t'));
     this.commands = rows.map(r => r.map(i => +i)).map(r => {
       const [seq, currentWP, frame, command, p1, p2, p3, p4, x, y, z, autoContinue] = r;
       const msg = new common.MissionItemInt();
@@ -49,6 +62,10 @@ export class Mission {
     this.subMissionRequest = null;
   }
 
+  public async waitForComplete(): Promise<void> {
+    await firstValueFrom(this.missionComplete$);
+  }
+
   private async sendMissionCount(): Promise<void> {
     const msg = new common.MissionCount();
     msg.count = this.commands.length;
@@ -59,6 +76,15 @@ export class Mission {
     this.subMissionCurrent = this.mavlink.messagesByType(common.MissionCurrent).subscribe(async msg => {
       if (this.currentWaypoint$.value == msg.seq) return;
       this.currentWaypoint$.next(msg.seq);
+    });
+    this.subMissionItemReached = this.mavlink.messagesByType(common.MissionItemReached).subscribe(async msg => {
+      this.waypointReached$.next(msg.seq);
+      if (msg.seq < this.commandsCount) return;
+      this.missionComplete$.next();
+      this.subMissionCurrent.unsubscribe();
+      this.subMissionCurrent = null;
+      this.subMissionItemReached.unsubscribe();
+      this.subMissionItemReached = null;
     });
   }
 

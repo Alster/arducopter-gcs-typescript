@@ -42,6 +42,7 @@ export class Mavlink {
   targetComponent = 0;
 
   heartbeat: BehaviorSubject<minimal.Heartbeat> = new BehaviorSubject<minimal.Heartbeat>(null);
+  baseMode$: BehaviorSubject<number> = new BehaviorSubject(0);
 
   constructor(socket: MavlinkSoc) {
 
@@ -78,10 +79,15 @@ export class Mavlink {
     this.messagesByType(minimal.Heartbeat)
       .subscribe((h: minimal.Heartbeat) => {
         this.heartbeat.next(h)
+        if (h.baseMode != this.baseMode$.value) this.baseMode$.next(h.baseMode);
       });
 
     this.messagesByType(common.StatusText)
-      .subscribe(m => console.log(`[DEVICE LOG]: ${m.text}`));
+      .subscribe(m => console.info(`[DEVICE LOG]: ${m.text}`));
+
+    this.baseMode$.subscribe(v => {
+      console.info(`[BASE MODE]:`, v, Object.keys(minimal.MavModeFlag).map(f => minimal.MavModeFlag[f]).filter(f => v & f).map(f => minimal.MavModeFlag[f]).join(', '));
+    });
 
     // this.messagesByType(Heartbeat)
     //   .subscribe((data: Heartbeat) => {
@@ -168,6 +174,8 @@ export class Mavlink {
   }
 
   async sendAndWait(msg: MavLinkData, protocol: MavLinkProtocol = new MavLinkProtocolV2()): Promise<common.CommandAck> {
+    //TODO WTF
+    // console.log((new Error()).stack)
     return lastValueFrom(this.sendAndWaitObs(msg, protocol));
   }
 
@@ -182,19 +190,19 @@ export class Mavlink {
                 observer.error(err);
                 return caught;
               })
-            ).subscribe((msg: common.CommandAck) => {
-                observer.next(msg);
+            ).subscribe((resp: common.CommandAck) => {
+              observer.next(resp);
 
-                console.log(msg);
+              // console.log(resp);
 
-                if (msg.result === common.MavResult.ACCEPTED) {
-                  observer.complete();
-                  s.unsubscribe();
-                } else if (msg.result !== common.MavResult.IN_PROGRESS) {
-                  console.error(msg);
-                  observer.error(new Error(`Command ${msgId} failed, reason: ${common.MavResult[msg.result]}`));
-                  s.unsubscribe();
-                }
+              if (resp.result === common.MavResult.ACCEPTED) {
+                observer.complete();
+                s.unsubscribe();
+              } else if (resp.result !== common.MavResult.IN_PROGRESS) {
+                console.error(resp);
+                observer.error(new Error(`Command ${this.getMessageName(msg)} (${msgId}) failed, reason: ${common.MavResult[resp.result]}`));
+                s.unsubscribe();
+              }
               }
             )
           })
@@ -213,6 +221,16 @@ export class Mavlink {
     throw new Error(`Error getting id from message`);
   }
 
+  protected getMessageName(msg: MavLinkData): string {
+    if (msg instanceof common.CommandInt || msg instanceof common.CommandLong) {
+      return `${(msg as any).constructor.MSG_NAME}:${common.MavCmd[msg.command]}`;
+    } else if ((msg as any).constructor.MSG_NAME) {
+      return (msg as any).constructor.MSG_NAME;
+    }
+
+    throw new Error(`Error getting name from message`);
+  }
+
   private fillRestOfCommand(msg: MavLinkData): void {
     for (const field of (msg as any).constructor.FIELDS as MavLinkPacketField[]) {
       if (msg[field.name] != undefined) continue;
@@ -225,7 +243,7 @@ export class Mavlink {
   }
 
   private msgToString(msg: MavLinkData): string {
-    let logStream = `${msg.constructor.name}: `;
+    let logStream = `${this.getMessageName(msg)}: `;
 
     logStream += ((msg as any).constructor.FIELDS as MavLinkPacketField[])
       .filter(a => msg[a.name] != undefined)
