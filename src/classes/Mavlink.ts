@@ -80,6 +80,9 @@ export class Mavlink {
         this.heartbeat.next(h)
       });
 
+    this.messagesByType(common.StatusText)
+      .subscribe(m => console.log(`[DEVICE LOG]: ${m.text}`));
+
     // this.messagesByType(Heartbeat)
     //   .subscribe((data: Heartbeat) => {
     // 	 console.log(`type: ${minimal.MavType[data.type]}`);

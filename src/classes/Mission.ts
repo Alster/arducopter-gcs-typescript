@@ -1,12 +1,20 @@
 import {Mavlink} from "./Mavlink";
-import {FlightMode} from "../enums";
 import * as fs from 'fs';
 import * as path from 'path';
 import {common} from "node-mavlink";
-import {lastValueFrom} from "rxjs";
+import {BehaviorSubject, lastValueFrom, Subscription} from "rxjs";
 
 export class Mission {
+  public currentWaypoint$: BehaviorSubject<number> = new BehaviorSubject(0);
+
   private commands: common.MissionItemInt[];
+  private subMissionRequest?: Subscription;
+  private subMissionCurrent?: Subscription;
+
+  constructor(
+    private readonly mavlink: Mavlink,
+  ) {
+  }
 
   public async loadFromFile(filePath: string): Promise<void>{
     const data = fs.readFileSync(path.resolve(filePath), 'utf8');
@@ -30,30 +38,32 @@ export class Mission {
     });
   }
 
-  public async uploadTo(mavlink: Mavlink): Promise<void>{
-
-    // mavlink.messagesByType(common.MissionRequestInt).subscribe(async mri => {
-    //   console.log(`received MissionRequestInt`)
-    //   console.dir(mri);
-    //   await this.uploadCommand(mavlink, this.commands[mri.seq]);
-    // });
-    await this.missionCount(mavlink)
-    for (const cmd of this.commands){
-      await this.uploadCommand(mavlink, cmd);
-    }
-    const mAck = await lastValueFrom(mavlink.messagesByType(common.MissionAck));
+  public async upload(): Promise<void>{
+    this.startTrackMissionStatus();
+    this.subMissionRequest = this.mavlink.messagesByType(common.MissionRequest).subscribe(async msg => {
+      await this.uploadCommand(this.commands[msg.seq]);
+    });
+    await this.missionCount()
+    await lastValueFrom(this.mavlink.messagesByType(common.MissionAck));
     console.log(`UPLOAD FINISHED!`)
-    console.dir(mAck);
+    this.subMissionRequest.unsubscribe();
+    this.subMissionRequest = null;
   }
 
-  private async missionCount(mavlink: Mavlink): Promise<void> {
+  private async missionCount(): Promise<void> {
     const msg = new common.MissionCount();
     msg.count = this.commands.length;
-    console.log(`Sending missionCount`)
-    await mavlink.send(msg);
+    await this.mavlink.send(msg);
   }
 
-  private async uploadCommand(mavlink: Mavlink, command: common.MissionItemInt): Promise<void> {
-    await mavlink.send(command);
+  private startTrackMissionStatus() {
+    this.subMissionCurrent = this.mavlink.messagesByType(common.MissionCurrent).subscribe(async msg => {
+      if (this.currentWaypoint$.value == msg.seq) return;
+      this.currentWaypoint$.next(msg.seq);
+    });
+  }
+
+  private async uploadCommand(command: common.MissionItemInt): Promise<void> {
+    await this.mavlink.send(command);
   }
 }
