@@ -4,9 +4,15 @@ import {FlightMode} from "../src/enums/ardupilot/FlightMode";
 import {sleep} from "node-mavlink";
 import iohook from "iohook";
 
+
+const X_Y_FORCE: number = 10;
+const Z_FORCE: number = 10;
+const YAW_FORCE: number = .5;
+
 const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
 
 
+let lastMoveIsEmpty: boolean = true;
 (async function main() {
   await drone.onReady();
 
@@ -14,7 +20,7 @@ const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
   await drone.arm();
 
   if (drone.globalPosition.value.relativeAlt < 10) {
-    await drone.takeoff(50);
+    await drone.takeoff(10);
     await sleep(20000);
   }
 
@@ -51,33 +57,36 @@ const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
     let yawRate = 0;
 
     if (keys[17]) {
-      x = 10;
+      x = X_Y_FORCE;
 
     } else if (keys[31]) {
-      x = -10;
+      x = -(X_Y_FORCE);
     }
 
     if (keys[30]) {
-      y = -10;
+      y = -(X_Y_FORCE);
     } else if (keys[32]) {
-      y = 10;
+      y = X_Y_FORCE;
     }
 
     if (keys[16]) {
-      z = 10;
+      z = Z_FORCE;
     } else if (keys[18]) {
-      z = -10;
+      z = -(Z_FORCE);
     }
 
     if (keys[61003]) {
-      yawRate = -1;
+      yawRate = -(YAW_FORCE);
     } else if (keys[61005]) {
-      yawRate = 1;
+      yawRate = (YAW_FORCE);
     }
 
     // console.log(drone.globalPosition.value);
-    drone.goToLocalPosition(x, y, z, yawRate);
 
+    if (x || y || yawRate || z || !lastMoveIsEmpty) {
+      drone.goToLocalPosition(x, y, z, yawRate);
+      lastMoveIsEmpty = !x && !y && !yawRate && !z;
+    }
 
     await sleep(10);
   }

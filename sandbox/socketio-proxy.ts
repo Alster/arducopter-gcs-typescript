@@ -9,7 +9,7 @@ import {connect} from "net";
 const httpServer = createServer();
 const io = require("socket.io")(httpServer, {
   cors: {
-    origin: "http://localhost:8080",
+    origin: "http://localhost:8085",
     methods: ["GET", "POST"]
   }
 });
