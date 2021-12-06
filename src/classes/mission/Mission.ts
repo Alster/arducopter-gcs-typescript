@@ -1,4 +1,4 @@
-import {Mavlink} from "./Mavlink";
+import {Mavlink} from "../Mavlink";
 import * as fs from 'fs';
 import * as path from 'path';
 import {common} from "node-mavlink";
@@ -23,32 +23,13 @@ export class Mission {
   ) {
   }
 
-  public loadFromFile(filePath: string): void {
-    const resolvedFilePath = path.resolve(filePath);
-    const data = fs.readFileSync(resolvedFilePath, 'utf8');
-    const rows = data
-      .split('\n')
-      .slice(1)
-      .map(r => r.trim())
-      .filter(r => r)
-      .map(r => r.split('\t'));
-    this.commands = rows.map(r => r.map(i => +i)).map(r => {
-      const [seq, currentWP, frame, command, p1, p2, p3, p4, x, y, z, autoContinue] = r;
-      const msg = new common.MissionItemInt();
-      msg.seq = seq;
-      msg.current = currentWP;
-      msg.frame = frame;
-      msg.command = command;
-      msg.param1 = p1;
-      msg.param2 = p2;
-      msg.param3 = p3;
-      msg.param4 = p4;
-      msg.x = Math.round(x * 1e7);
-      msg.y = Math.round(y * 1e7);
-      msg.z = z;
-      msg.autocontinue = autoContinue;
-      return msg;
-    });
+  public add(cmds: common.MissionItemInt[]): void {
+    this.commands = cmds;
+  }
+
+  public async clear(): Promise<void> {
+    await this.sendMissionClear()
+    await firstValueFrom(this.mavlink.firstMessagesByType(common.MissionAck));
   }
 
   public async upload(): Promise<void> {
@@ -69,6 +50,11 @@ export class Mission {
   private async sendMissionCount(): Promise<void> {
     const msg = new common.MissionCount();
     msg.count = this.commands.length;
+    await this.mavlink.send(msg);
+  }
+
+  private async sendMissionClear(): Promise<void> {
+    const msg = new common.MissionClearAll();
     await this.mavlink.send(msg);
   }
 

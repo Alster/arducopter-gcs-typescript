@@ -1,21 +1,35 @@
 import {connect} from "net";
-import {Drone} from "../src/classes/Drone";
-import {Mission} from "../src/classes/Mission";
+import {Drone} from "../src";
+import {Mission} from "../src/classes/mission/Mission";
 import {minimal, common, ardupilotmega, waitFor} from "node-mavlink";
 import {FlightMode} from "../src";
 import {firstValueFrom} from "rxjs";
 import {sleep} from "mavlink-mappings";
 import {MavModeFlag} from "mavlink-mappings/lib/minimal";
-
-//-35.363261 149.165237
-//-35.36323724 149.16454692
-//-35.36277309 149.16472986
+import {getDistance} from "geolib";
+import {GeolibGeoJSONPoint} from "geolib/es/types";
+import {MissionHelpers} from "../src/classes/mission/mission-helpers";
 
 const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
 const missionToClient = new Mission(drone);
-missionToClient.loadFromFile('./goToClient.waypoints');
 const missionToBase = new Mission(drone);
-missionToBase.loadFromFile('./goToBase.waypoints');
+
+// missionToClient.add(MissionBuilder.fromFile('./goToClient.waypoints'));
+// missionToBase.add(MissionBuilder.fromFile('./goToBase.waypoints'));
+
+const FLIGHT_ALT = 10;
+
+const coordBase: GeolibGeoJSONPoint = [63.98486065, -22.62659818, FLIGHT_ALT];
+const coordClient: GeolibGeoJSONPoint = [63.98727310, -22.62469829, FLIGHT_ALT];
+
+missionToClient.add(MissionHelpers.fromCoords(coordBase, coordClient, [
+  [63.98534992, -22.62454708, FLIGHT_ALT],
+  [63.98641100, -22.62700416, FLIGHT_ALT],
+]));
+missionToBase.add(MissionHelpers.fromCoords(coordClient, coordBase, [
+  [63.98641100, -22.62700416, FLIGHT_ALT],
+  [63.98534992, -22.62454708, FLIGHT_ALT],
+]));
 
 const ignoreClasses = [
   common.BatteryStatus,
@@ -70,8 +84,8 @@ const ignoreClasses = [
   await drone.setMode(FlightMode.GUIDED);
   await drone.arm();
   await drone.setSpeed(500);
-  await drone.takeoff(10);
-  await drone.waitForAltitude(10);
+  await drone.takeoff(FLIGHT_ALT);
+  await drone.waitForAltitude(FLIGHT_ALT);
 
   await missionToClient.upload();
   await drone.setMode(FlightMode.AUTO);
@@ -81,21 +95,12 @@ const ignoreClasses = [
   await drone.setMode(FlightMode.LAND);
   await drone.waitForBaseModeOff(minimal.MavModeFlag.SAFETY_ARMED);
 
-  console.log(`Waiting when client zabere svou dostavku`)
-  await sleep(5000);
-  console.log(`... vse esche zhdem`)
-  await sleep(2000);
-  console.log(`... kakoy zhe tupoy client ...`)
-  await sleep(2000);
-  console.log(`oooooo! Vzletaem!`)
-  await sleep(2000);
-  console.log(`GO!`)
   await sleep(1000);
 
   await drone.setMode(FlightMode.GUIDED);
   await drone.arm();
-  await drone.takeoff(10);
-  await drone.waitForAltitude(10);
+  await drone.takeoff(FLIGHT_ALT);
+  await drone.waitForAltitude(FLIGHT_ALT);
 
   await missionToBase.upload();
   await drone.setMode(FlightMode.AUTO);
