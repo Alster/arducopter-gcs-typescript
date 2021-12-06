@@ -13,18 +13,18 @@ export class Mission {
     return this.commands.length ? this.commands.length - 1 : 0;
   }
 
-  private commands: common.MissionItemInt[];
+  public get commandsList() {
+    return this.commands;
+  }
+
   private subMissionRequest?: Subscription;
   private subMissionCurrent?: Subscription;
   private subMissionItemReached?: Subscription;
 
   constructor(
     private readonly mavlink: Mavlink,
+    private readonly commands: common.MissionItemInt[],
   ) {
-  }
-
-  public add(cmds: common.MissionItemInt[]): void {
-    this.commands = cmds;
   }
 
   public async clear(): Promise<void> {

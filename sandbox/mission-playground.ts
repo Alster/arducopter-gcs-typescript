@@ -9,10 +9,9 @@ import {MavModeFlag} from "mavlink-mappings/lib/minimal";
 import {getDistance} from "geolib";
 import {GeolibGeoJSONPoint} from "geolib/es/types";
 import {MissionHelpers} from "../src/classes/mission/mission-helpers";
+import {DistanceMissionTracker} from "../src/classes/mission/distance.mission-tracker";
 
 const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
-const missionToClient = new Mission(drone);
-const missionToBase = new Mission(drone);
 
 // missionToClient.add(MissionBuilder.fromFile('./goToClient.waypoints'));
 // missionToBase.add(MissionBuilder.fromFile('./goToBase.waypoints'));
@@ -22,22 +21,14 @@ const FLIGHT_ALT = 10;
 const coordBase: GeolibGeoJSONPoint = [63.98486065, -22.62659818, FLIGHT_ALT];
 const coordClient: GeolibGeoJSONPoint = [63.98727310, -22.62469829, FLIGHT_ALT];
 
-// missionToClient.add(MissionHelpers.fromCoords(coordBase, coordClient, [
-//   [63.98534992, -22.62454708, FLIGHT_ALT],
-//   [63.98641100, -22.62700416, FLIGHT_ALT],
-// ]));
-// missionToBase.add(MissionHelpers.fromCoords(coordClient, coordBase, [
-//   [63.98641100, -22.62700416, FLIGHT_ALT],
-//   [63.98534992, -22.62454708, FLIGHT_ALT],
-// ]));
-
-const testFile = './test.waypoints';
-MissionHelpers.toFile(testFile, MissionHelpers.fromCoords(coordBase, coordClient, [
+const missionToClient = new Mission(drone, MissionHelpers.fromCoords(coordBase, coordClient, [
   [63.98534992, -22.62454708, FLIGHT_ALT],
   [63.98641100, -22.62700416, FLIGHT_ALT],
 ]));
-
-missionToClient.add(MissionHelpers.fromFile(testFile));
+// const missionToBase = new Mission(drone, MissionHelpers.fromCoords(coordClient, coordBase, [
+//   [63.98641100, -22.62700416, FLIGHT_ALT],
+//   [63.98534992, -22.62454708, FLIGHT_ALT],
+// ]));
 
 const ignoreClasses = [
   common.BatteryStatus,
@@ -88,6 +79,8 @@ const ignoreClasses = [
     if (ignoreClasses.some(c => (d instanceof c))) return;
     // console.dir(d);
   });
+
+  new DistanceMissionTracker(drone, missionToClient);
 
   await drone.setMode(FlightMode.GUIDED);
   await drone.arm();

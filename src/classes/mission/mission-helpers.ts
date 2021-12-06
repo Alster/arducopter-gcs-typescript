@@ -2,8 +2,14 @@ import path from "path";
 import fs from "fs";
 import {common} from "node-mavlink";
 import {GeolibGeoJSONPoint} from "geolib/es/types";
+import {Mavlink} from "../Mavlink";
+import {Mission} from "./Mission";
 
 export namespace MissionHelpers {
+
+  export function waypointToCoord(c: common.MissionItemInt): GeolibGeoJSONPoint {
+    return [c.x / 1e7, c.y / 1e7, c.z];
+  }
 
   export function coordToWaypoint(coord: GeolibGeoJSONPoint, seq = 0): common.MissionItemInt {
     const msg = new common.MissionItemInt();
