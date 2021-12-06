@@ -80,7 +80,8 @@ const ignoreClasses = [
     // console.dir(d);
   });
 
-  new DistanceMissionTracker(drone, missionToClient);
+  const tracker = new DistanceMissionTracker(drone, missionToClient);
+  tracker.progress$.subscribe(p => console.dir(p));
 
   await drone.setMode(FlightMode.GUIDED);
   await drone.arm();
