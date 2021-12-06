@@ -76,5 +76,16 @@ export namespace MissionHelpers {
     });
   }
 
+  export function toFile(filePath: string, commands: common.MissionItemInt[]): void {
+    const resolvedFilePath = path.resolve(filePath);
+
+    const data = commands
+      .map(c => [c.seq, c.current, c.frame, c.command, c.param1, c.param2, c.param3, c.param4, c.x / 1e7, c.y / 1e7, c.z, c.autocontinue])
+      .map(c => c.join('\t'))
+      .join('\n');
+
+    fs.writeFileSync(resolvedFilePath, `QGC WPL 110\n` + data);
+  }
+
   //#endregion
 }
