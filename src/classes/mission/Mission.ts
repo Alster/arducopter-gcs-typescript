@@ -28,8 +28,12 @@ export class Mission {
   }
 
   public async clear(): Promise<void> {
-    await this.sendMissionClear()
+    await this.sendMissionClear();
     await firstValueFrom(this.mavlink.firstMessagesByType(common.MissionAck));
+  }
+
+  public async setCurrentSeq(seq: number): Promise<void> {
+    await this.sendMissionSetCurrent(seq);
   }
 
   public async upload(): Promise<void> {
@@ -55,6 +59,12 @@ export class Mission {
 
   private async sendMissionClear(): Promise<void> {
     const msg = new common.MissionClearAll();
+    await this.mavlink.send(msg);
+  }
+
+  private async sendMissionSetCurrent(seq: number): Promise<void> {
+    const msg = new common.MissionSetCurrent();
+    msg.seq = seq;
     await this.mavlink.send(msg);
   }
 
