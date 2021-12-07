@@ -16,8 +16,8 @@ let lastMoveIsEmpty: boolean = true;
 (async function main() {
   await drone.onReady();
 
-  await drone.setMode(FlightMode.GUIDED);
-  await drone.arm();
+  if (drone.mode != FlightMode.GUIDED) await drone.setMode(FlightMode.GUIDED);
+  if (!drone.hasArmed) await drone.arm();
 
   if (drone.globalPosition.value.relativeAlt < 10) {
     await drone.takeoff(10);
