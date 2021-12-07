@@ -28,6 +28,20 @@ export class Drone extends Vehicle {
     await waitFor(() => this.mode === mode);
   }
 
+  async goFly(alt: number): Promise<void> {
+    if (this.mode != FlightMode.GUIDED) await this.setMode(FlightMode.GUIDED);
+    if (!this.hasArmed) await this.arm();
+    if (this.globalPosition.value.relativeAlt < (alt - 1)) {
+      await this.takeoff(alt);
+      await this.waitForAltitude(alt);
+    }
+  }
+
+  async goLand(): Promise<void> {
+    await this.setMode(FlightMode.LAND);
+    await this.waitForBaseModeOff(minimal.MavModeFlag.SAFETY_ARMED);
+  }
+
   async arm(): Promise<void> {
     await this.armControl(true);
     await this.waitForBaseModeOn(minimal.MavModeFlag.SAFETY_ARMED);

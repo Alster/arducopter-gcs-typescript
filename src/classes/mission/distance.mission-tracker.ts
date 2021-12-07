@@ -34,7 +34,6 @@ export class DistanceMissionTracker {
       this.seq = reachedWaypoint;
       this.lastWaypointDist = this.getCommandsDistance(mission.commandsList.slice(0, this.seq + 1));
       if (this.seq === mission.commandsCount) {
-        console.log(`Reached 100%`);
         clearInterval(this.checkInterval);
         this.progress$.complete();
         return;
@@ -49,7 +48,7 @@ export class DistanceMissionTracker {
             dist: Math.round(distanceComplete),
             percentage: Math.round(percentage),
           });
-        }, 100);
+        }, 1000);
       }
     });
   }

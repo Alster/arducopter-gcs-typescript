@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {common} from "node-mavlink";
 import {BehaviorSubject, filter, firstValueFrom, lastValueFrom, Subject, Subscription} from "rxjs";
+import {FlightMode} from "../../enums";
+import {Drone} from "../Drone";
 
 export class Mission {
   readonly currentWaypoint$: BehaviorSubject<number> = new BehaviorSubject(0);
@@ -22,7 +24,7 @@ export class Mission {
   private subMissionItemReached?: Subscription;
 
   constructor(
-    private readonly mavlink: Mavlink,
+    private readonly mavlink: Drone,
     private readonly commands: common.MissionItemInt[],
   ) {
   }
@@ -34,6 +36,12 @@ export class Mission {
 
   async setCurrentSeq(seq: number): Promise<void> {
     await this.sendMissionSetCurrent(seq);
+  }
+
+  async runMission(): Promise<void> {
+    await this.upload();
+    await this.mavlink.setMode(FlightMode.AUTO);
+    await this.waitForComplete();
   }
 
   async upload(): Promise<void> {

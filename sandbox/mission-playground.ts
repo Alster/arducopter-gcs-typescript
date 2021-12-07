@@ -2,14 +2,10 @@ import {connect} from "net";
 import {Drone} from "../src";
 import {Mission} from "../src/classes/mission/Mission";
 import {minimal, common, ardupilotmega, waitFor} from "node-mavlink";
-import {FlightMode} from "../src";
-import {firstValueFrom} from "rxjs";
-import {sleep} from "mavlink-mappings";
-import {MavModeFlag} from "mavlink-mappings/lib/minimal";
-import {getDistance} from "geolib";
 import {GeolibGeoJSONPoint} from "geolib/es/types";
 import {MissionHelpers} from "../src/classes/mission/mission-helpers";
 import {DistanceMissionTracker} from "../src/classes/mission/distance.mission-tracker";
+import {sleep} from "mavlink-mappings";
 
 const drone = new Drone(connect({host: '127.0.0.1', port: 14552}));
 
@@ -25,10 +21,10 @@ const missionToClient = new Mission(drone, MissionHelpers.fromCoords(coordBase, 
   [63.98534992, -22.62454708, FLIGHT_ALT],
   [63.98641100, -22.62700416, FLIGHT_ALT],
 ]));
-// const missionToBase = new Mission(drone, MissionHelpers.fromCoords(coordClient, coordBase, [
-//   [63.98641100, -22.62700416, FLIGHT_ALT],
-//   [63.98534992, -22.62454708, FLIGHT_ALT],
-// ]));
+const missionToBase = new Mission(drone, MissionHelpers.fromCoords(coordClient, coordBase, [
+  [63.98641100, -22.62700416, FLIGHT_ALT],
+  [63.98534992, -22.62454708, FLIGHT_ALT],
+]));
 
 const ignoreClasses = [
   common.BatteryStatus,
@@ -83,34 +79,20 @@ const ignoreClasses = [
   const tracker = new DistanceMissionTracker(drone, missionToClient);
   tracker.progress$.subscribe(p => console.dir(p));
 
-  await drone.setMode(FlightMode.GUIDED);
-  await drone.arm();
+  await drone.goFly(FLIGHT_ALT);
   await drone.setSpeed(500);
-  await drone.takeoff(FLIGHT_ALT);
-  await drone.waitForAltitude(FLIGHT_ALT);
 
-  await missionToClient.upload();
-  await drone.setMode(FlightMode.AUTO);
-  await missionToClient.waitForComplete();
+  await missionToClient.runMission();
   console.log(`MISSION TO CLIENT COMPLETE`)
 
-  await drone.setMode(FlightMode.LAND);
-  await drone.waitForBaseModeOff(minimal.MavModeFlag.SAFETY_ARMED);
+  await drone.goLand();
+  await sleep(1000);
 
-  // await sleep(1000);
-  //
-  // await drone.setMode(FlightMode.GUIDED);
-  // await drone.arm();
-  // await drone.takeoff(FLIGHT_ALT);
-  // await drone.waitForAltitude(FLIGHT_ALT);
-  //
-  // await missionToBase.upload();
-  // await drone.setMode(FlightMode.AUTO);
-  // await missionToBase.waitForComplete();
-  // console.log(`MISSION TO BASE COMPLETE`)
-  //
-  // await drone.setMode(FlightMode.LAND);
-  // await drone.waitForBaseModeOff(minimal.MavModeFlag.SAFETY_ARMED);
-  // console.log(`-= FINITA LA STUPEDIA =-`)
+  await drone.goFly(FLIGHT_ALT);
+  await missionToBase.runMission();
+  console.log(`MISSION TO BASE COMPLETE`)
+
+  await drone.goLand();
+  console.log(`-= FINITA LA STUPEDIA =-`)
 
 })();
