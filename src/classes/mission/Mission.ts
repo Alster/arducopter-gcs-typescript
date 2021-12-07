@@ -5,15 +5,15 @@ import {common} from "node-mavlink";
 import {BehaviorSubject, filter, firstValueFrom, lastValueFrom, Subject, Subscription} from "rxjs";
 
 export class Mission {
-  public readonly currentWaypoint$: BehaviorSubject<number> = new BehaviorSubject(0);
-  public readonly waypointReached$: Subject<number> = new Subject();
-  public readonly missionComplete$: Subject<void> = new Subject();
+  readonly currentWaypoint$: BehaviorSubject<number> = new BehaviorSubject(0);
+  readonly waypointReached$: Subject<number> = new Subject();
+  readonly missionComplete$: Subject<void> = new Subject();
 
-  public get commandsCount() {
+  get commandsCount() {
     return this.commands.length ? this.commands.length - 1 : 0;
   }
 
-  public get commandsList() {
+  get commandsList() {
     return this.commands;
   }
 
@@ -27,16 +27,16 @@ export class Mission {
   ) {
   }
 
-  public async clear(): Promise<void> {
+  async clear(): Promise<void> {
     await this.sendMissionClear();
     await firstValueFrom(this.mavlink.firstMessagesByType(common.MissionAck));
   }
 
-  public async setCurrentSeq(seq: number): Promise<void> {
+  async setCurrentSeq(seq: number): Promise<void> {
     await this.sendMissionSetCurrent(seq);
   }
 
-  public async upload(): Promise<void> {
+  async upload(): Promise<void> {
     this.startTrackMissionStatus();
     this.subMissionRequest = this.mavlink.messagesByType(common.MissionRequest).subscribe(async msg => {
       await this.uploadCommand(this.commands[msg.seq]);
@@ -47,7 +47,7 @@ export class Mission {
     this.subMissionRequest = null;
   }
 
-  public async waitForComplete(): Promise<void> {
+  async waitForComplete(): Promise<void> {
     await firstValueFrom(this.missionComplete$);
   }
 

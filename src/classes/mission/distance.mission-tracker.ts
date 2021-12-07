@@ -14,7 +14,7 @@ interface DistanceProgress {
 
 export class DistanceMissionTracker {
 
-  public readonly progress$: BehaviorSubject<DistanceProgress> = new BehaviorSubject({
+  readonly progress$: BehaviorSubject<DistanceProgress> = new BehaviorSubject({
     dist: 0,
     percentage: 0,
   });
